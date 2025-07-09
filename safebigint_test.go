@@ -8,7 +8,12 @@ import (
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
-func TestAnalyzer(t *testing.T) {
+func TestTruncation(t *testing.T) {
 	testdata := analysistest.TestData()
-	analysistest.Run(t, testdata, safebigint.Analyzer, "testpkg")
+	analysistest.Run(t, testdata, safebigint.Analyzer, "truncation_check")
+}
+
+func TestMutation(t *testing.T) {
+	testdata := analysistest.TestData()
+	analysistest.Run(t, testdata, safebigint.Analyzer, "mutation_check")
 }
