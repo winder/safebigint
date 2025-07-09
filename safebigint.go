@@ -33,6 +33,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		}
 
 		checkForTruncation(pass, sel, call)
+		checkForMutation(pass, sel, call)
 	})
 
 	return nil, nil
@@ -65,5 +66,64 @@ func checkForTruncation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.Ca
 
 	if named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int" {
 		pass.Reportf(call.Pos(), "calling %s on *big.Int may silently truncate or overflow", truncMsg)
+	}
+}
+
+// isBigIntPointer reports whether t is *big.Int.
+func isBigIntPointer(t types.Type) bool {
+	ptrType, ok := t.(*types.Pointer)
+	if !ok {
+		return false
+	}
+	named, ok := ptrType.Elem().(*types.Named)
+	if !ok || named.Obj().Pkg() == nil {
+		return false
+	}
+	return named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int"
+}
+
+// getReferencedObject extracts the types.Object for an identifier or selector.
+func getReferencedObject(pass *analysis.Pass, expr ast.Expr) types.Object {
+	switch e := expr.(type) {
+	case *ast.Ident:
+		return pass.TypesInfo.Uses[e]
+	case *ast.SelectorExpr:
+		return pass.TypesInfo.Uses[e.Sel]
+	default:
+		return nil
+	}
+}
+
+// checkForMutation detects cases where a big.Int method call uses the receiver as one of its arguments.
+func checkForMutation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.CallExpr) {
+	// List of big.Int methods that mutate the receiver and take one or more input big.Ints.
+	mutatingMethods := map[string]bool{
+		"Add": true, "Sub": true, "Mul": true, "Div": true, "Mod": true, "Rem": true,
+		"And": true, "Or": true, "Xor": true, "Lsh": true, "Rsh": true,
+		"Exp": true,
+	}
+
+	if !mutatingMethods[sel.Sel.Name] {
+		return
+	}
+
+	// Ensure receiver is *big.Int
+	if !isBigIntPointer(pass.TypesInfo.TypeOf(sel.X)) {
+		return
+	}
+
+	recvObj := getReferencedObject(pass, sel.X)
+	if recvObj == nil {
+		return
+	}
+
+	for _, arg := range call.Args {
+		argObj := getReferencedObject(pass, arg)
+		if argObj != nil && argObj == recvObj {
+			pass.Reportf(call.Pos(),
+				"shared-object mutation: calling %s with receiver also passed as argument (e.g., x.%s(x, ...)) can be unsafe",
+				sel.Sel.Name, sel.Sel.Name)
+			break
+		}
 	}
 }
