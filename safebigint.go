@@ -18,6 +18,12 @@ var Analyzer = &analysis.Analyzer{
 	Run: run,
 }
 
+// truncatingMap holds methods to flag for the silent truncate or overflow warning.
+var truncatingMap = map[string]string{
+	"Uint64": "Uint64()",
+	"Int64":  "Int64()",
+}
+
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
@@ -32,13 +38,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			return
 		}
 
-		// Truncating methods to flag
-		truncating := map[string]string{
-			"Uint64": "Uint64()",
-			"Int64":  "Int64()",
-		}
-
-		if truncMsg, exists := truncating[sel.Sel.Name]; !exists {
+		if truncMsg, exists := truncatingMap[sel.Sel.Name]; !exists {
 			return
 		} else {
 			recv := pass.TypesInfo.TypeOf(sel.X)
