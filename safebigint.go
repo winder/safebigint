@@ -39,6 +39,31 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	return nil, nil
 }
 
+// getBigIntReceiver returns the types.Object of the receiver if it's a *big.Int method call.
+func getBigIntReceiver(pass *analysis.Pass, sel *ast.SelectorExpr) (types.Object, bool) {
+	t := pass.TypesInfo.TypeOf(sel.X)
+	ptrType, ok := t.(*types.Pointer)
+	if !ok {
+		return nil, false
+	}
+
+	named, ok := ptrType.Elem().(*types.Named)
+	if !ok || named.Obj().Pkg() == nil {
+		return nil, false
+	}
+
+	if named.Obj().Pkg().Path() != "math/big" || named.Obj().Name() != "Int" {
+		return nil, false
+	}
+
+	obj := getReferencedObject(pass, sel.X)
+	if obj == nil {
+		return nil, false
+	}
+
+	return obj, true
+}
+
 // checkForTruncation looks for unsafe calls that may result in truncation.
 func checkForTruncation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.CallExpr) {
 	// methods to flag for the silent truncate or overflow warning.
@@ -47,27 +72,72 @@ func checkForTruncation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.Ca
 		"Int64":  "Int64()",
 	}
 
-	var truncMsg string
-	var exists bool
-	if truncMsg, exists = truncatingMap[sel.Sel.Name]; !exists {
+	truncMsg, exists := truncatingMap[sel.Sel.Name]
+	if !exists {
 		return
 	}
 
-	recv := pass.TypesInfo.TypeOf(sel.X)
-	ptrType, ok := recv.(*types.Pointer)
+	if _, ok := getBigIntReceiver(pass, sel); ok {
+		pass.Reportf(call.Pos(), "calling %s on *big.Int may silently truncate or overflow", truncMsg)
+	}
+}
+
+// isBigIntPointer reports whether t is *big.Int.
+func isBigIntPointer(t types.Type) bool {
+	ptrType, ok := t.(*types.Pointer)
+	if !ok {
+		return false
+	}
+	named, ok := ptrType.Elem().(*types.Named)
+	if !ok || named.Obj().Pkg() == nil {
+		return false
+	}
+	return named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int"
+}
+
+// getReferencedObject extracts the types.Object for an identifier or selector.
+func getReferencedObject(pass *analysis.Pass, expr ast.Expr) types.Object {
+	switch e := expr.(type) {
+	case *ast.Ident:
+		return pass.TypesInfo.Uses[e]
+	case *ast.SelectorExpr:
+		return pass.TypesInfo.Uses[e.Sel]
+	default:
+		return nil
+	}
+}
+
+// checkForMutation checks for unsafe patterns where the receiver is also passed
+// as an argument to a mutating method, which can lead to unexpected shared-object
+// mutation issues.
+func checkForMutation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.CallExpr) {
+	// List of big.Int methods that mutate the receiver and take one or more input big.Ints.
+	mutatingMethods := map[string]bool{
+		"Add": true, "Sub": true, "Mul": true, "Div": true, "Mod": true, "Rem": true,
+		"And": true, "Or": true, "Xor": true, "Lsh": true, "Rsh": true,
+		"Exp": true, "Quo": true,
+	}
+
+	if !mutatingMethods[sel.Sel.Name] {
+		return
+	}
+
+	recvObj, ok := getBigIntReceiver(pass, sel)
 	if !ok {
 		return
 	}
 
-	named, ok := ptrType.Elem().(*types.Named)
-	if !ok || named.Obj().Pkg() == nil {
-		return
-	}
-
-	if named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int" {
-		pass.Reportf(call.Pos(), "calling %s on *big.Int may silently truncate or overflow", truncMsg)
+	for _, arg := range call.Args {
+		argObj := getReferencedObject(pass, arg)
+		if argObj != nil && argObj == recvObj {
+			pass.Reportf(call.Pos(),
+				"shared-object mutation: calling %s with receiver also passed as argument (e.g., x.%s(x, ...)) can be unsafe",
+				sel.Sel.Name, sel.Sel.Name)
+			break
+		}
 	}
 }
+<<<<<<< HEAD
 
 // isBigIntPointer reports whether t is *big.Int.
 func isBigIntPointer(t types.Type) bool {
@@ -129,3 +199,6 @@ func checkForMutation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.Call
 		}
 	}
 }
+=======
+>>>>>>> Stashed changes
+>>>>>>> 576061f (Refactor shared code.)
