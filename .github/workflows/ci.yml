@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  safebigint-ci:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        go-version: ['1.22', '1.23', '1.24']  # Add/remove versions as needed
+
+    name: Go ${{ matrix.go-version }} CI
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧰 Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: 📦 Install dependencies
+        run: go mod tidy
+
+      - name: ✅ Run tests with coverage
+        run: |
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out        
+
+      - name: 📤 Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.out
+          flags: go${{ matrix.go-version }}
+          name: go-${{ matrix.go-version }}
+          fail_ci_if_error: true
+
+      - name: 🛠 Build CLI binary
+        run: go build -o safebigint ./cmd/safebigint
