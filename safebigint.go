@@ -9,6 +9,28 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
+// Config for enabling or disabling different big.Int checks.
+type Config struct {
+	EnableTruncationCheck bool `mapstructure:"enable-truncation-check"`
+	EnableMutationCheck   bool `mapstructure:"enable-mutation-check"`
+}
+
+var config Config
+
+func init() {
+	Analyzer.Flags.BoolVar(&config.EnableTruncationCheck, "enable-truncation-check", true, "Enable checks for truncating conversions")
+	Analyzer.Flags.BoolVar(&config.EnableMutationCheck, "enable-mutation-check", true, "Enable checks for shared object mutation")
+}
+
+var Analyzer = &analysis.Analyzer{
+	Name: "safebigint",
+	Doc:  "warns when Uint64() is called on a *big.Int, which may truncate silently",
+	Requires: []*analysis.Analyzer{
+		inspect.Analyzer,
+	},
+	Run: run,
+}
+
 // truncatingMethods are methods to flag for the silent truncate or overflow warning.
 var truncatingMethods = map[string]struct{}{
 	"Uint64": {},
@@ -21,21 +43,15 @@ var mutatingMethods = map[string]struct{}{
 	"And": {}, "Or": {}, "Xor": {}, "Lsh": {}, "Rsh": {}, "Exp": {}, "Quo": {},
 }
 
-var Analyzer = &analysis.Analyzer{
-	Name: "safebigint",
-	Doc:  "warns when Uint64() is called on a *big.Int, which may truncate silently",
-	Requires: []*analysis.Analyzer{
-		inspect.Analyzer,
-	},
-	Run: run,
-}
-
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
-	checks := []func(*analysis.Pass, *ast.SelectorExpr, *ast.CallExpr){
-		checkForTruncation,
-		checkForMutation,
+	checks := []func(*analysis.Pass, *ast.SelectorExpr, *ast.CallExpr){}
+	if config.EnableTruncationCheck {
+		checks = append(checks, checkForTruncation)
+	}
+	if config.EnableMutationCheck {
+		checks = append(checks, checkForMutation)
 	}
 
 	inspector.Preorder([]ast.Node{(*ast.CallExpr)(nil)}, func(n ast.Node) {
