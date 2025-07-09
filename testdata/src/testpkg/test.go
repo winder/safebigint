@@ -12,12 +12,12 @@ func safeConversion(b *big.Int) uint64 {
 	if b.Cmp(big.NewInt(0)) < 0 {
 		return 0
 	}
-	return b.Uint64() // want "calling Uint64\\(\\) on \\*big.Int may silently truncate or overflow"
+	return b.Uint64() // want "calling Uint64 on \\*big.Int may silently truncate or overflow"
 }
 
 func testMixed() {
 	x := big.NewInt(123)
-	_ = x.Uint64() // want "calling Uint64\\(\\) on \\*big.Int may silently truncate or overflow"
+	_ = x.Uint64() // want "calling Uint64 on \\*big.Int may silently truncate or overflow"
 
 	y := new(myBigInt)
 	_ = y.Uint64() // OK: user-defined type
@@ -31,8 +31,8 @@ func testIgnore() {
 func otherTruncationExamples() {
 	b := big.NewInt(123456789)
 
-	_ = b.Uint64() // want "calling Uint64\\(\\) on \\*big.Int may silently truncate or overflow"
-	_ = b.Int64()  // want "calling Int64\\(\\) on \\*big.Int may silently truncate or overflow"
+	_ = b.Uint64() // want "calling Uint64 on \\*big.Int may silently truncate or overflow"
+	_ = b.Int64()  // want "calling Int64 on \\*big.Int may silently truncate or overflow"
 }
 
 type customBig struct{}
