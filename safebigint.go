@@ -9,6 +9,7 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
+// Config for enabling or disabling different big.Int checks.
 type Config struct {
 	EnableTruncationCheck bool `mapstructure:"enable-truncation-check"`
 	EnableMutationCheck   bool `mapstructure:"enable-mutation-check"`
