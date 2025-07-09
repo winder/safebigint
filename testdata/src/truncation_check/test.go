@@ -1,4 +1,4 @@
-package testpkg
+package truncation_check
 
 import (
 	"math/big"
