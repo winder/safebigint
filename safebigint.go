@@ -18,37 +18,43 @@ var Analyzer = &analysis.Analyzer{
 	Run: run,
 }
 
+// truncatingMap holds methods to flag for the silent truncate or overflow warning.
+var truncatingMap = map[string]string{
+	"Uint64": "Uint64()",
+	"Int64":  "Int64()",
+}
+
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
-	nodeFilter := []ast.Node{
-		(*ast.CallExpr)(nil),
-	}
-
-	inspector.Preorder(nodeFilter, func(n ast.Node) {
+	inspector.Preorder([]ast.Node{(*ast.CallExpr)(nil)}, func(n ast.Node) {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return
 		}
 
-		selExpr, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok || selExpr.Sel.Name != "Uint64" {
-			return
-		}
-
-		recvType := pass.TypesInfo.TypeOf(selExpr.X)
-		ptrType, ok := recvType.(*types.Pointer)
+		sel, ok := call.Fun.(*ast.SelectorExpr)
 		if !ok {
 			return
 		}
 
-		named, ok := ptrType.Elem().(*types.Named)
-		if !ok || named.Obj().Pkg() == nil {
+		if truncMsg, exists := truncatingMap[sel.Sel.Name]; !exists {
 			return
-		}
+		} else {
+			recv := pass.TypesInfo.TypeOf(sel.X)
+			ptrType, ok := recv.(*types.Pointer)
+			if !ok {
+				return
+			}
 
-		if named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int" {
-			pass.Reportf(call.Pos(), "calling Uint64() on *big.Int may truncate large values silently")
+			named, ok := ptrType.Elem().(*types.Named)
+			if !ok || named.Obj().Pkg() == nil {
+				return
+			}
+
+			if named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int" {
+				pass.Reportf(call.Pos(), "calling %s on *big.Int may silently truncate or overflow", truncMsg)
+			}
 		}
 	})
 
