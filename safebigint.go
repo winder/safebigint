@@ -18,12 +18,6 @@ var Analyzer = &analysis.Analyzer{
 	Run: run,
 }
 
-// truncatingMap holds methods to flag for the silent truncate or overflow warning.
-var truncatingMap = map[string]string{
-	"Uint64": "Uint64()",
-	"Int64":  "Int64()",
-}
-
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
@@ -38,25 +32,38 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			return
 		}
 
-		if truncMsg, exists := truncatingMap[sel.Sel.Name]; !exists {
-			return
-		} else {
-			recv := pass.TypesInfo.TypeOf(sel.X)
-			ptrType, ok := recv.(*types.Pointer)
-			if !ok {
-				return
-			}
-
-			named, ok := ptrType.Elem().(*types.Named)
-			if !ok || named.Obj().Pkg() == nil {
-				return
-			}
-
-			if named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int" {
-				pass.Reportf(call.Pos(), "calling %s on *big.Int may silently truncate or overflow", truncMsg)
-			}
-		}
+		checkForTruncation(pass, sel, call)
 	})
 
 	return nil, nil
+}
+
+// checkForTruncation looks for unsafe calls that may result in truncation.
+func checkForTruncation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.CallExpr) {
+	// methods to flag for the silent truncate or overflow warning.
+	truncatingMap := map[string]string{
+		"Uint64": "Uint64()",
+		"Int64":  "Int64()",
+	}
+
+	var truncMsg string
+	var exists bool
+	if truncMsg, exists = truncatingMap[sel.Sel.Name]; !exists {
+		return
+	}
+
+	recv := pass.TypesInfo.TypeOf(sel.X)
+	ptrType, ok := recv.(*types.Pointer)
+	if !ok {
+		return
+	}
+
+	named, ok := ptrType.Elem().(*types.Named)
+	if !ok || named.Obj().Pkg() == nil {
+		return
+	}
+
+	if named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int" {
+		pass.Reportf(call.Pos(), "calling %s on *big.Int may silently truncate or overflow", truncMsg)
+	}
 }
