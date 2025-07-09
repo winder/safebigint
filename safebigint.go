@@ -94,13 +94,15 @@ func getReferencedObject(pass *analysis.Pass, expr ast.Expr) types.Object {
 	}
 }
 
-// checkForMutation detects cases where a big.Int method call uses the receiver as one of its arguments.
+// checkForMutation checks for unsafe patterns where the receiver is also passed
+// as an argument to a mutating method, which can lead to unexpected shared-object
+// mutation issues.
 func checkForMutation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.CallExpr) {
 	// List of big.Int methods that mutate the receiver and take one or more input big.Ints.
 	mutatingMethods := map[string]bool{
-		"Add": true, "Sub": true, "Mul": true, "Div": true, "Mod": true, "Rem": true,
+		"Add": true, "Sub": true, "Mul": true, Div": true, "Mod": true, "Rem": true,
 		"And": true, "Or": true, "Xor": true, "Lsh": true, "Rsh": true,
-		"Exp": true,
+		"Exp": true, "Quo": true,
 	}
 
 	if !mutatingMethods[sel.Sel.Name] {
