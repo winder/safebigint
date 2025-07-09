@@ -33,11 +33,13 @@ jobs:
           go tool cover -func=coverage.out        
 
       - name: 📤 Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
           flags: go${{ matrix.go-version }}
           name: go-${{ matrix.go-version }}
+          slug: winder/safebigint
           fail_ci_if_error: true
 
       - name: 🛠 Build CLI binary
