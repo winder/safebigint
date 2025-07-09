@@ -1,4 +1,4 @@
-package mutationcheck
+package mutation_check
 
 import (
 	"math/big"
