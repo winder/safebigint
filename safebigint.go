@@ -9,6 +9,18 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
+// truncatingMethods are methods to flag for the silent truncate or overflow warning.
+var truncatingMethods = map[string]struct{}{
+	"Uint64": {},
+	"Int64":  {},
+}
+
+// mutatingMethods are methods to flag for the mutating methods warning.
+var mutatingMethods = map[string]struct{}{
+	"Add": {}, "Sub": {}, "Mul": {}, "Div": {}, "Mod": {}, "Rem": {},
+	"And": {}, "Or": {}, "Xor": {}, "Lsh": {}, "Rsh": {}, "Exp": {}, "Quo": {},
+}
+
 var Analyzer = &analysis.Analyzer{
 	Name: "safebigint",
 	Doc:  "warns when Uint64() is called on a *big.Int, which may truncate silently",
@@ -21,6 +33,11 @@ var Analyzer = &analysis.Analyzer{
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
+	checks := []func(*analysis.Pass, *ast.SelectorExpr, *ast.CallExpr){
+		checkForTruncation,
+		checkForMutation,
+	}
+
 	inspector.Preorder([]ast.Node{(*ast.CallExpr)(nil)}, func(n ast.Node) {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
@@ -32,40 +49,49 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			return
 		}
 
-		checkForTruncation(pass, sel, call)
-		checkForMutation(pass, sel, call)
+		for _, check := range checks {
+			check(pass, sel, call)
+		}
 	})
 
 	return nil, nil
 }
 
-// checkForTruncation looks for unsafe calls that may result in truncation.
-func checkForTruncation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.CallExpr) {
-	// methods to flag for the silent truncate or overflow warning.
-	truncatingMap := map[string]string{
-		"Uint64": "Uint64()",
-		"Int64":  "Int64()",
-	}
-
-	var truncMsg string
-	var exists bool
-	if truncMsg, exists = truncatingMap[sel.Sel.Name]; !exists {
-		return
-	}
-
-	recv := pass.TypesInfo.TypeOf(sel.X)
-	ptrType, ok := recv.(*types.Pointer)
+// getBigIntReceiver returns the types.Object of the receiver if it's a *big.Int method call.
+func getBigIntReceiver(pass *analysis.Pass, sel *ast.SelectorExpr) (types.Object, bool) {
+	t := pass.TypesInfo.TypeOf(sel.X)
+	ptrType, ok := t.(*types.Pointer)
 	if !ok {
-		return
+		return nil, false
 	}
 
 	named, ok := ptrType.Elem().(*types.Named)
 	if !ok || named.Obj().Pkg() == nil {
+		return nil, false
+	}
+
+	if named.Obj().Pkg().Path() != "math/big" || named.Obj().Name() != "Int" {
+		return nil, false
+	}
+
+	obj := getReferencedObject(pass, sel.X)
+	if obj == nil {
+		return nil, false
+	}
+
+	return obj, true
+}
+
+// checkForTruncation looks for unsafe calls that may result in truncation.
+func checkForTruncation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.CallExpr) {
+
+	_, exists := truncatingMethods[sel.Sel.Name]
+	if !exists {
 		return
 	}
 
-	if named.Obj().Pkg().Path() == "math/big" && named.Obj().Name() == "Int" {
-		pass.Reportf(call.Pos(), "calling %s on *big.Int may silently truncate or overflow", truncMsg)
+	if _, ok := getBigIntReceiver(pass, sel); ok {
+		pass.Reportf(call.Pos(), "calling %s on *big.Int may silently truncate or overflow", sel.Sel.Name)
 	}
 }
 
