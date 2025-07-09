@@ -100,7 +100,7 @@ func getReferencedObject(pass *analysis.Pass, expr ast.Expr) types.Object {
 func checkForMutation(pass *analysis.Pass, sel *ast.SelectorExpr, call *ast.CallExpr) {
 	// List of big.Int methods that mutate the receiver and take one or more input big.Ints.
 	mutatingMethods := map[string]bool{
-		"Add": true, "Sub": true, "Mul": true, Div": true, "Mod": true, "Rem": true,
+		"Add": true, "Sub": true, "Mul": true, "Div": true, "Mod": true, "Rem": true,
 		"And": true, "Or": true, "Xor": true, "Lsh": true, "Rsh": true,
 		"Exp": true, "Quo": true,
 	}
