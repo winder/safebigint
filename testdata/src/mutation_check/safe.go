@@ -19,3 +19,13 @@ func safeMutation() {
 	w.b = big.NewInt(5)
 	w.b.Add(y, z)
 }
+
+func mixedArgs() {
+	x := big.NewInt(1)
+	x.Add(nil, nil) // nil arg — getReferencedObject will return nil
+}
+
+func notAMutation() {
+	x := big.NewInt(1)
+	_ = x.BitLen() // triggers checkForMutation, skips early
+}

@@ -17,3 +17,8 @@ func TestMutation(t *testing.T) {
 	testdata := analysistest.TestData()
 	analysistest.Run(t, testdata, safebigint.Analyzer, "mutation_check")
 }
+
+func TestHelpers(t *testing.T) {
+	testdata := analysistest.TestData()
+	analysistest.Run(t, testdata, safebigint.Analyzer, "helpers")
+}
