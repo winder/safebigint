@@ -12,21 +12,25 @@ func safeConversion(b *big.Int) uint64 {
 	if b.Cmp(big.NewInt(0)) < 0 {
 		return 0
 	}
-	return b.Uint64() // want "calling Uint64\\(\\) on \\*big.Int may truncate large values silently"
+	return b.Uint64() // want "calling Uint64\\(\\) on \\*big.Int may silently truncate or overflow"
 }
 
 func testMixed() {
 	x := big.NewInt(123)
-	_ = x.Uint64() // want "calling Uint64\\(\\) on \\*big.Int may truncate large values silently"
+	_ = x.Uint64() // want "calling Uint64\\(\\) on \\*big.Int may silently truncate or overflow"
 
 	y := new(myBigInt)
 	_ = y.Uint64() // OK: user-defined type
-
-	z := big.NewInt(999)
-	_ = z.Int64() // OK: not Uint64
 }
 
 func testIgnore() {
 	var i int
 	_ = uint64(i) // OK: not big.Int
+}
+
+func otherTruncationExamples() {
+	b := big.NewInt(123456789)
+
+	_ = b.Uint64() // want "calling Uint64\\(\\) on \\*big.Int may silently truncate or overflow"
+	_ = b.Int64()  // want "calling Int64\\(\\) on \\*big.Int may silently truncate or overflow"
 }
