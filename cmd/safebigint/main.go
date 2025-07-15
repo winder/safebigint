@@ -17,7 +17,7 @@ func main() {
 
 	analyzer, err := safebigint.NewAnalyzer(config)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to create analyzer: %v", err)
 	}
 
 	singlechecker.Main(analyzer)
