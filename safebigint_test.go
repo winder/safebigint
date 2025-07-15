@@ -11,8 +11,8 @@ import (
 
 func mustAnalyzer() *analysis.Analyzer {
 	a, err := safebigint.NewAnalyzer(safebigint.LinterSettings{
-		EnableTruncationCheck: true,
-		EnableMutationCheck:   true,
+		DisableTruncationCheck: false,
+		DisableMutationCheck:   false,
 	})
 	if err != nil {
 		panic(err)
