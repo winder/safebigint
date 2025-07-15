@@ -11,8 +11,8 @@ import (
 
 func main() {
 	var config safebigint.LinterSettings
-	flag.BoolVar(&config.EnableTruncationCheck, "enable-truncation-check", true, "Enable checks for truncating conversions")
-	flag.BoolVar(&config.EnableMutationCheck, "enable-mutation-check", true, "Enable checks for shared object mutation")
+	flag.BoolVar(&config.DisableTruncationCheck, "disable-truncation-check", false, "Disable checks for truncating conversions")
+	flag.BoolVar(&config.DisableMutationCheck, "disable-mutation-check", false, "Disable checks for shared object mutation")
 	flag.Parse()
 
 	analyzer, err := safebigint.NewAnalyzer(config)

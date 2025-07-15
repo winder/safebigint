@@ -11,8 +11,8 @@ import (
 
 // LinterSettings holds settings for enabling or disabling different big.Int checks.
 type LinterSettings struct {
-	EnableTruncationCheck bool
-	EnableMutationCheck   bool
+	DisableTruncationCheck bool
+	DisableMutationCheck   bool
 }
 
 func NewAnalyzer(settings LinterSettings) (*analysis.Analyzer, error) {
@@ -49,10 +49,10 @@ func (a *analyzer) run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	checks := []func(*analysis.Pass, *ast.SelectorExpr, *ast.CallExpr){}
-	if a.settings.EnableTruncationCheck {
+	if !a.settings.DisableTruncationCheck {
 		checks = append(checks, checkForTruncation)
 	}
-	if a.settings.EnableMutationCheck {
+	if !a.settings.DisableMutationCheck {
 		checks = append(checks, checkForMutation)
 	}
 
