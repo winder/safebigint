@@ -24,7 +24,7 @@ func init() {
 
 var Analyzer = &analysis.Analyzer{
 	Name: "safebigint",
-	Doc:  "warns when Uint64() is called on a *big.Int, which may truncate silently",
+	Doc:  "Warnings for risky *big.Int patterns.",
 	Requires: []*analysis.Analyzer{
 		inspect.Analyzer,
 	},
