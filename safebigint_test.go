@@ -5,20 +5,32 @@ import (
 
 	"github.com/winder/safebigint"
 
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
+func mustAnalyzer() *analysis.Analyzer {
+	a, err := safebigint.NewAnalyzer(safebigint.LinterSettings{
+		EnableTruncationCheck: true,
+		EnableMutationCheck:   true,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
 func TestTruncation(t *testing.T) {
 	testdata := analysistest.TestData()
-	analysistest.Run(t, testdata, safebigint.Analyzer, "truncation_check")
+	analysistest.Run(t, testdata, mustAnalyzer(), "truncation_check")
 }
 
 func TestMutation(t *testing.T) {
 	testdata := analysistest.TestData()
-	analysistest.Run(t, testdata, safebigint.Analyzer, "mutation_check")
+	analysistest.Run(t, testdata, mustAnalyzer(), "mutation_check")
 }
 
 func TestHelpers(t *testing.T) {
 	testdata := analysistest.TestData()
-	analysistest.Run(t, testdata, safebigint.Analyzer, "helpers")
+	analysistest.Run(t, testdata, mustAnalyzer(), "helpers")
 }
