@@ -9,10 +9,10 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-// LinterSettings for enabling or disabling different big.Int checks.
+// LinterSettings holds settings for enabling or disabling different big.Int checks.
 type LinterSettings struct {
-	EnableTruncationCheck bool `mapstructure:"enable-truncation-check"`
-	EnableMutationCheck   bool `mapstructure:"enable-mutation-check"`
+	EnableTruncationCheck bool
+	EnableMutationCheck   bool
 }
 
 func NewAnalyzer(settings LinterSettings) (*analysis.Analyzer, error) {
